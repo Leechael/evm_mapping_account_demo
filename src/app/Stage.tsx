@@ -228,7 +228,7 @@ function SupportedStatement() {
         <div className="ml-3">
           <h3 className="text-sm font-medium text-red-800">Unsupported Chain</h3>
           <div className="mt-2 text-sm text-red-700">
-            <p>This chain since don't include evm_account_mapping pallet</p>
+            <p>This chain since don&apos;t include evm_account_mapping pallet</p>
           </div>
         </div>
       </div>
