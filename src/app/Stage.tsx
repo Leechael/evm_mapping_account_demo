@@ -4,9 +4,8 @@ import { useState, useEffect } from 'react'
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api'
 import type { u16, u32, u128, Struct } from '@polkadot/types'
 import { atom, useAtom, useSetAtom, useAtomValue, type Getter, type Atom } from 'jotai'
-import { createPublicClient, http, custom, createWalletClient } from 'viem'
+import { custom, createWalletClient, type WalletClient } from 'viem'
 import { mainnet } from 'viem/chains'
-import { WagmiConfig, createConfig, useWalletClient } from 'wagmi'
 import { CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/20/solid'
 
 import { getMappingAccount, type MappingAccount, signAndSend, signAndSendEvm } from '@/evm_mapping_sdk'
@@ -112,6 +111,8 @@ const blockExplorerAtom = atom('https://poc6-statescan.phala.network')
 
 const isSupportedAtom = atom(true)
 
+const walletClientAtom = atom<WalletClient | null>(null)
+
 //
 // Components
 //
@@ -169,6 +170,7 @@ function ConnectButton() {
   const setMappingAccount = useSetAtom(mappedAccountAtom)
   const [isPending, setIsPending] = useState(false)
   const setIsSupport = useSetAtom(isSupportedAtom)
+  const setWalletClient = useSetAtom(walletClientAtom)
   return (
     <button
       className="rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
@@ -186,6 +188,7 @@ function ConnectButton() {
           }
           const walletClient = createWalletClient({ chain: mainnet, transport: custom((window as any).ethereum) })
           const [address] = await walletClient.requestAddresses()
+          setWalletClient(walletClient)
           const SS58Prefix = (_api!.consts.system?.ss58Prefix as u16).toNumber()
           const mappedAccount = await getMappingAccount(walletClient, { address: address }, { SS58Prefix })
           setMappingAccount(mappedAccount)
@@ -308,7 +311,7 @@ function ClaimTestToken() {
           setTrxId('')
           const keyring = new Keyring({ type: 'sr25519' })
           const alice = keyring.addFromUri('//Alice')
-          const result = await signAndSend(apiPromise.tx.balances.transferAllowDeath(mappedAccount.address, 1e12 * 100), alice)
+          const result = await signAndSend(apiPromise.tx.balances.transferAllowDeath(mappedAccount.address, 1e12 * 10), alice)
           const trxId = result.status.asInBlock.toHex()
           setTrxId(trxId)
         } finally {
@@ -372,7 +375,7 @@ const transferOutTrxIdAtom = atom('')
 function TransferToAddress() {
   const { instance: apiPromise } = useAtomValue(apiPromiseAtom)
   const mappedAccount = useAtomValue(mappedAccountAtom)
-  const { data: walletClient } = useWalletClient()
+  const walletClient = useAtomValue(walletClientAtom)
   const [isPending, setIsPending] = useState(false)
   const setTrxId = useSetAtom(transferOutTrxIdAtom)
   const enabled = apiPromise && mappedAccount && walletClient
@@ -458,47 +461,38 @@ function TransferToAddress() {
 // Compose together
 //
 
-const config = createConfig({
-  autoConnect: true,
-  publicClient: createPublicClient({
-    chain: mainnet,
-    transport: http()
-  }),
-})
 
 export function Stage() {
   return (
-    <WagmiConfig config={config}>
-      <div className="w-full md:min-w-[600px] md:max-w-4xl flex flex-col gap-4">
-        <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-          EVM Account Mapping Pallet for Substrate
-        </h1>
+    <div className="w-full md:min-w-[600px] md:max-w-4xl flex flex-col gap-4">
+      <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+        EVM Account Mapping Pallet for Substrate
+      </h1>
 
-        <div className="bg-white shadow sm:rounded-lg py-5 sm:p-6 flex flex-col gap-2.5">
-          <div className="flex flex-row gap-2.5 px-4">
-            <div className="flex flex-col gap-2.5 grow">
-              <RpcInput />
-              <BlockExploerInput />
-            </div>
-            <div>
-              <ConnectButton />
-            </div>
+      <div className="bg-white shadow sm:rounded-lg py-5 sm:p-6 flex flex-col gap-2.5">
+        <div className="flex flex-row gap-2.5 px-4">
+          <div className="flex flex-col gap-2.5 grow">
+            <RpcInput />
+            <BlockExploerInput />
           </div>
-          <SupportedStatement />
-        </div>
-        <MappingAddress />
-        <div className="bg-white shadow sm:rounded-lg flex flex-col gap-2.5 px-4 py-5 sm:p-6">
-          <div className="flex flex-row justify-between items-center">
-            <AccountBalance />
-            <ClaimTestToken />
+          <div>
+            <ConnectButton />
           </div>
-          <ViewTrxHelpText theAtom={claimTestTokenTrxIdAtom} />
         </div>
-        <div className="bg-white shadow sm:rounded-lg flex flex-col gap-2.5 px-4 py-5 sm:p-6">
-          <TransferToAddress />
-          <ViewTrxHelpText theAtom={transferOutTrxIdAtom} />
-        </div>
+        <SupportedStatement />
       </div>
-    </WagmiConfig>
+      <MappingAddress />
+      <div className="bg-white shadow sm:rounded-lg flex flex-col gap-2.5 px-4 py-5 sm:p-6">
+        <div className="flex flex-row justify-between items-center">
+          <AccountBalance />
+          <ClaimTestToken />
+        </div>
+        <ViewTrxHelpText theAtom={claimTestTokenTrxIdAtom} />
+      </div>
+      <div className="bg-white shadow sm:rounded-lg flex flex-col gap-2.5 px-4 py-5 sm:p-6">
+        <TransferToAddress />
+        <ViewTrxHelpText theAtom={transferOutTrxIdAtom} />
+      </div>
+    </div>
   )
 } 
