@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api'
 import type { u16, u32, u128, Struct } from '@polkadot/types'
 import { atom, useAtom, useSetAtom, useAtomValue, type Getter, type Atom } from 'jotai'
-import { createPublicClient, http } from 'viem'
+import { createPublicClient, http, custom, createWalletClient } from 'viem'
 import { mainnet } from 'viem/chains'
 import { WagmiConfig, createConfig, useAccount, useConnect, useWalletClient } from 'wagmi'
 import { InjectedConnector } from 'wagmi/connectors/injected'
@@ -173,7 +173,6 @@ function ConnectButton() {
   const setMappingAccount = useSetAtom(mappedAccountAtom)
   const account = useAccount()
   const { connect } = useConnect({ connector })
-  const { data: walletClient } = useWalletClient()
   const [isPending, setIsPending] = useState(false)
   const setIsSupport = useSetAtom(isSupportedAtom)
   return (
@@ -194,8 +193,9 @@ function ConnectButton() {
             setIsSupport(false)
             return
           }
+          const walletClient = createWalletClient({ chain: mainnet, transport: custom((window as any).ethereum) })
           const SS58Prefix = (_api!.consts.system?.ss58Prefix as u16).toNumber()
-          const mappedAccount = await getMappingAccount(walletClient!, { address: account.address! }, { SS58Prefix })
+          const mappedAccount = await getMappingAccount(walletClient, { address: account.address! }, { SS58Prefix })
           setMappingAccount(mappedAccount)
           setIsSupport(true)
         } finally {
