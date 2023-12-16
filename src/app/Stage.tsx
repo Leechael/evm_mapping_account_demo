@@ -181,9 +181,6 @@ function ConnectButton() {
       className="rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
       onClick={async () => {
         try {
-          if (!walletClient) {
-            return
-          }
           setIsPending(true)
           if (!account.isConnected) {
             connect()
@@ -198,7 +195,7 @@ function ConnectButton() {
             return
           }
           const SS58Prefix = (_api!.consts.system?.ss58Prefix as u16).toNumber()
-          const mappedAccount = await getMappingAccount(walletClient, { address: account.address! }, { SS58Prefix })
+          const mappedAccount = await getMappingAccount(walletClient!, { address: account.address! }, { SS58Prefix })
           setMappingAccount(mappedAccount)
           setIsSupport(true)
         } finally {
