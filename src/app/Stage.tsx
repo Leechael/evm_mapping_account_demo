@@ -285,7 +285,7 @@ function AccountBalance() {
   }, [apiPromise, mappedAccount, setBalance])
   return (
     <div>
-      <div>Balance: {formatter.format(Number(balance / BigInt(1e8)) / 1e4)} Unit</div>
+      <div className="dark:text-gray-900">Balance: {formatter.format(Number(balance / BigInt(1e8)) / 1e4)} Unit</div>
     </div>
   )
 }
@@ -465,7 +465,7 @@ function TransferToAddress() {
 export function Stage() {
   return (
     <div className="w-full md:min-w-[600px] md:max-w-4xl flex flex-col gap-4">
-      <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+      <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight dark:text-white">
         EVM Account Mapping Pallet for Substrate
       </h1>
 
