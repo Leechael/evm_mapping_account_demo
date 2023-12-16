@@ -6,8 +6,7 @@ import type { u16, u32, u128, Struct } from '@polkadot/types'
 import { atom, useAtom, useSetAtom, useAtomValue, type Getter, type Atom } from 'jotai'
 import { createPublicClient, http, custom, createWalletClient } from 'viem'
 import { mainnet } from 'viem/chains'
-import { WagmiConfig, createConfig, useAccount, useConnect, useWalletClient } from 'wagmi'
-import { InjectedConnector } from 'wagmi/connectors/injected'
+import { WagmiConfig, createConfig, useWalletClient } from 'wagmi'
 import { CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/20/solid'
 
 import { getMappingAccount, type MappingAccount, signAndSend, signAndSendEvm } from '@/evm_mapping_sdk'
@@ -104,7 +103,6 @@ const apiPromiseAtom = atomWithConnectState(
     })
     return apiPromise
   },
-  // { autoConnect: true }
 )
 
 const mappedAccountAtom = atom<MappingAccount | null>(null)
@@ -163,16 +161,12 @@ function BlockExploerInput() {
   )
 }
 
-const connector = new InjectedConnector()
-
 /**
  * Prompt the user to connect their wallet and request signing for compressed pubkey.
  */
 function ConnectButton() {
   const [{ instance: apiPromise }, dispatch] = useAtom(apiPromiseAtom)
   const setMappingAccount = useSetAtom(mappedAccountAtom)
-  const account = useAccount()
-  const { connect } = useConnect({ connector })
   const [isPending, setIsPending] = useState(false)
   const setIsSupport = useSetAtom(isSupportedAtom)
   return (
@@ -181,9 +175,6 @@ function ConnectButton() {
       onClick={async () => {
         try {
           setIsPending(true)
-          if (!account.isConnected) {
-            connect()
-          }
           let _api = apiPromise
           if (_api) {
             await dispatch({ type: 'disconnect' })
@@ -194,8 +185,9 @@ function ConnectButton() {
             return
           }
           const walletClient = createWalletClient({ chain: mainnet, transport: custom((window as any).ethereum) })
+          const [address] = await walletClient.requestAddresses()
           const SS58Prefix = (_api!.consts.system?.ss58Prefix as u16).toNumber()
-          const mappedAccount = await getMappingAccount(walletClient, { address: account.address! }, { SS58Prefix })
+          const mappedAccount = await getMappingAccount(walletClient, { address: address }, { SS58Prefix })
           setMappingAccount(mappedAccount)
           setIsSupport(true)
         } finally {
