@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@heroicons/react": "^2.0.18",
     "@polkadot/api": "^10.11.1",
     "jotai": "^2.6.0",
     "next": "14.0.4",
