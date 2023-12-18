@@ -257,7 +257,7 @@ function MappingAddress() {
         <h3 className="text-base font-semibold leading-6 text-gray-900">Mapping Account</h3>
         <div className="pt-4 px-2.5 bg-stone-50 rounded-sm border border-stone-200 mt-4">
           <LightBulbIcon className="w-4 h-4 text-yellow-400 float-left mt-1.5" />
-          <article className="prose prose-stone dark:prose-invert ml-7 max-w-4xl prose-a:text-gray-500">
+          <article className="prose prose-stone ml-7 max-w-4xl prose-a:text-gray-500">
             <p>
               Here is the current connected account's address and its mapping substrate address in SS58 format. It is generated using the same private key, but it does not require access to your private key. Instead, it is calculated based on the public key of your wallet.
             </p>
@@ -504,7 +504,7 @@ function ClaimTestTokenHelpText() {
   return (
     <div className="py-4 px-2.5 bg-stone-50 rounded-sm border border-stone-200">
       <LightBulbIcon className="w-4 h-4 text-yellow-400 float-left mt-1.5" />
-      <article className="prose prose-stone dark:prose-invert ml-7 max-w-4xl prose-a:text-gray-500">
+      <article className="prose prose-stone ml-7 max-w-4xl prose-a:text-gray-500">
         {!connected ? (
           <p>
             You need to connect your wallet in order to see the balance.
@@ -535,7 +535,7 @@ export function Stage() {
       <div className="bg-white shadow sm:rounded-lg py-5 sm:p-6 flex flex-col gap-2.5">
         <div className="pt-4 px-2.5 bg-stone-50 rounded-sm border border-stone-200">
           <LightBulbIcon className="w-4 h-4 text-yellow-400 float-left mt-1.5" />
-          <article className="prose prose-stone dark:prose-invert ml-7 max-w-4xl prose-a:text-gray-500">
+          <article className="prose prose-stone ml-7 max-w-4xl prose-a:text-gray-500">
             <p>
               You need connect to a Substrate node with <code>evm_account_mapping</code> pallet. Or you can build your own test node here: <a href="https://github.com/Phala-Network/substrate-evm_account_mapping" target="_blank">github.com/Phala-Network/substrate-evm_account_mapping</a>.
             </p>
@@ -573,7 +573,7 @@ export function Stage() {
       <div className="bg-white shadow sm:rounded-lg flex flex-col gap-2.5 px-4 py-5 sm:p-6">
         <div className="py-4 px-2.5 bg-stone-50 rounded-sm border border-stone-200">
           <LightBulbIcon className="w-4 h-4 text-yellow-400 float-left mt-1.5" />
-          <article className="prose prose-stone dark:prose-invert ml-7 max-w-4xl prose-a:text-gray-500">
+          <article className="prose prose-stone ml-7 max-w-4xl prose-a:text-gray-500">
             <p>
               Our SDK allows you to sign transactions with your EVM compatible wallet and send them to the Substrate node. It will redirect any extrinsics to the <code>evm_account_mapping</code> pallet with minimal modifications.
             </p>
