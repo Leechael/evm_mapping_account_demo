@@ -1,6 +1,7 @@
 {
   "name": "evm-account-mapping-pallet-demo",
   "version": "0.1.0",
+  "license": "Apache License",
   "private": true,
   "scripts": {
     "dev": "next dev",

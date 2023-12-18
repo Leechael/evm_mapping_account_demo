@@ -582,7 +582,7 @@ export function Stage() {
             </p>
             <pre className="font-mono">{dedent`
               const result = await signAndSendEvm(
-                apiPromise.tx.balances.transferAllowDeath(mapping_address, amount),
+                apiPromise.tx.balances.transferAllowDeath(target_address, amount),
                 apiPromise,
                 walletClient,
                 mappedAccount,

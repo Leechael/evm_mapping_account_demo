@@ -1,7 +1,7 @@
 {
   "name": "evm_account_mapping_sdk",
   "version": "1.0.0",
-  "license": "MIT",
+  "license": "Apache License",
   "main": "dist/index",
   "browser": "dist/index",
   "exports": {
