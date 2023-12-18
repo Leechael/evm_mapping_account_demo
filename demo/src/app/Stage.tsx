@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react'
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api'
 import type { u16, u32, u128, Struct } from '@polkadot/types'
 import { atom, useAtom, useSetAtom, useAtomValue, type Getter, type Atom } from 'jotai'
+import { atomWithReset, RESET } from 'jotai/utils'
 import { custom, createWalletClient, type WalletClient } from 'viem'
 import { mainnet } from 'viem/chains'
-import { CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/20/solid'
+import dedent from 'dedent'
+import { CheckCircleIcon, ExclamationCircleIcon, ArrowPathIcon, LightBulbIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/20/solid'
 
 import { getMappingAccount, type MappingAccount, signAndSend, signAndSendEvm } from '@/evm_mapping_sdk'
 
@@ -91,7 +93,7 @@ function atomWithConnectState<
   return outerAtom
 }
 
-const rpcAtom = atom('wss://poc6.phala.network/ws')
+const rpcAtom = atomWithReset('wss://poc6.phala.network/ws')
 
 const apiPromiseAtom = atomWithConnectState(
   async function (get) {
@@ -107,7 +109,7 @@ const apiPromiseAtom = atomWithConnectState(
 const mappedAccountAtom = atom<MappingAccount | null>(null)
 
 // https://poc6-statescan.phala.network/extrinsics/{trxId}
-const blockExplorerAtom = atom('https://poc6-statescan.phala.network')
+const blockExplorerAtom = atomWithReset('https://poc6-statescan.phala.network')
 
 const isSupportedAtom = atom(true)
 
@@ -117,29 +119,31 @@ const walletClientAtom = atom<WalletClient | null>(null)
 // Components
 //
 
-function Spinner() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 animate-spin">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-    </svg>
-  )
-}
-
 function RpcInput() {
   const [rpc, setRpc] = useAtom(rpcAtom)
   return (
     <div>
-      <label htmlFor="email" className="sr-only">
+      <label htmlFor="rpc" className="sr-only">
         WS Endpoint
       </label>
-      <input
-        name="rpc"
-        id="rpc"
-        value={rpc}
-        onChange={ev => setRpc(ev.target.value)}
-        className="block w-full rounded-md border-0 px-2.5 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-        placeholder="ws://127.0.0.1:9944"
-      />
+      <div className="relative mt-2 flex items-center">
+        <input
+          name="rpc"
+          id="rpc"
+          value={rpc}
+          onChange={ev => setRpc(ev.target.value)}
+          className="block w-full rounded-md border-0 px-2.5 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 font-mono"
+          placeholder="ws://127.0.0.1:9944"
+        />
+        <div className="absolute inset-y-0 right-0 flex py-1.5 pr-1.5">
+          <button
+            className="inline-flex items-center rounded border border-gray-200 px-1 font-sans text-xs text-gray-400"
+            onClick={() => setRpc(RESET)}
+          >
+            RESET
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -148,16 +152,27 @@ function BlockExploerInput() {
   const [blockExplorer, setBlockExplorer] = useAtom(blockExplorerAtom)
   return (
     <div>
-      <label htmlFor="email" className="sr-only">
-        WS Endpoint
+      <label htmlFor="blockExplorer" className="sr-only">
+        Block Explorer
       </label>
-      <input
-        name="rpc"
-        id="rpc"
-        className="block w-full rounded-md border-0 px-2.5 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-        value={blockExplorer}
-        onChange={ev => setBlockExplorer(ev.target.value)}
-      />
+      <div className="relative mt-2 flex items-center">
+        <input
+          name="blockExplorer"
+          id="blockExplorer"
+          className="block w-full rounded-md border-0 px-2.5 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 font-mono"
+          value={blockExplorer}
+          onChange={ev => setBlockExplorer(ev.target.value)}
+          placeholder="Block Explorer URL, e.g. https://poc6-statescan.phala.network or https://phala.subscan.io"
+        />
+        <div className="absolute inset-y-0 right-0 flex py-1.5 pr-1.5">
+          <button
+            className="inline-flex items-center rounded border border-gray-200 px-1 font-sans text-xs text-gray-400"
+            onClick={() => setBlockExplorer(RESET)}
+          >
+            RESET
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -166,14 +181,15 @@ function BlockExploerInput() {
  * Prompt the user to connect their wallet and request signing for compressed pubkey.
  */
 function ConnectButton() {
-  const [{ instance: apiPromise }, dispatch] = useAtom(apiPromiseAtom)
+  const [{ instance: apiPromise, connected }, dispatch] = useAtom(apiPromiseAtom)
   const setMappingAccount = useSetAtom(mappedAccountAtom)
   const [isPending, setIsPending] = useState(false)
   const setIsSupport = useSetAtom(isSupportedAtom)
   const setWalletClient = useSetAtom(walletClientAtom)
   return (
     <button
-      className="rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+      className="rounded-md bg-indigo-600 mt-2 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:bg-indigo-200"
+      disabled={isPending || connected}
       onClick={async () => {
         try {
           setIsPending(true)
@@ -199,8 +215,8 @@ function ConnectButton() {
       }}
     >
       {isPending ? (
-        <Spinner />
-      ) : "Connect"}
+        <ArrowPathIcon className="w-4 h-4 animate-spin" />
+      ) : connected ? "connected" : "Connect"}
     </button>
   )
 }
@@ -230,6 +246,8 @@ function SupportedStatement() {
 
 function MappingAddress() {
   const mappedAccount = useAtomValue(mappedAccountAtom)
+  const blockExplorer = useAtomValue(blockExplorerAtom)
+  const prefix = blockExplorer.indexOf('subscan') !== -1 ? 'account' : 'accounts'
   if (!mappedAccount) {
     return null
   }
@@ -237,19 +255,35 @@ function MappingAddress() {
     <div className="bg-white shadow sm:rounded-lg">
       <div className="px-4 py-5 sm:p-6">
         <h3 className="text-base font-semibold leading-6 text-gray-900">Mapping Account</h3>
+        <div className="pt-4 px-2.5 bg-stone-50 rounded-sm border border-stone-200 mt-4">
+          <LightBulbIcon className="w-4 h-4 text-yellow-400 float-left mt-1.5" />
+          <article className="prose prose-stone dark:prose-invert ml-7 max-w-4xl prose-a:text-gray-500">
+            <p>
+              Here is the current connected account's address and its mapping substrate address in SS58 format. It is generated using the same private key, but it does not require access to your private key. Instead, it is calculated based on the public key of your wallet.
+            </p>
+            <p>
+              You can export your private key from your EVM compatible wallet and import it into any Polkadot compatible wallet, such as the <a href="https://polkadot.js.org/extension/" target="_blank">Polkadot.js</a> extension.
+            </p>
+            <p>
+            </p>
+          </article>
+        </div>
         <div className="mt-2 max-w-xl text-sm text-gray-500">
-          <div className="mt-6 border-t border-gray-100 md:min-w-[640px]">
+          <div className="mt-6 border-t border-gray-100 md:min-w-[660px]">
             <dl className="divide-y divide-gray-100">
               <div className="px-4 py-2.5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                 <dt className="text-sm font-medium leading-6 text-gray-900 flex items-center">EVM Address</dt>
                 <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0 font-mono overflow-x-scroll md:overflow-auto scroll-smooth py-2">
-                  {mappedAccount.evmAddress}
+                  {mappedAccount?.evmAddress}
                 </dd>
               </div>
               <div className="px-4 py-2.5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
                 <dt className="text-sm font-medium leading-6 text-gray-900 flex items-center">Mapping Substrate Address</dt>
                 <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0 font-mono overflow-x-scroll md:overflow-auto scroll-smooth py-2">
-                  {mappedAccount.address}
+                  <a href={`${blockExplorer}/${prefix}/${mappedAccount?.address}`} target="_blank" className="inline-flex gap-1.5 items-center">
+                    {mappedAccount?.address}
+                    <span><ArrowTopRightOnSquareIcon className="w-4 h-4 text-blue-600" /></span>
+                  </a>
                 </dd>
               </div>
             </dl>
@@ -285,7 +319,11 @@ function AccountBalance() {
   }, [apiPromise, mappedAccount, setBalance])
   return (
     <div>
-      <div className="dark:text-gray-900">Balance: {formatter.format(Number(balance / BigInt(1e8)) / 1e4)} Unit</div>
+      <div className="dark:text-gray-900">
+        <span className="text-gray-500 mr-1">Balance:</span>
+        <span className="font-mono font-medium">{formatter.format(Number(balance / BigInt(1e8)) / 1e4)}</span>
+        <span className="text-sm text-gray-500 ml-1">Unit</span>
+      </div>
     </div>
   )
 }
@@ -320,7 +358,7 @@ function ClaimTestToken() {
       }}
     >
       {isPending ? (
-        <Spinner />
+        <ArrowPathIcon className="w-4 h-4 animate-spin" />
       ) : "Claim Test Tokens"}
     </button>
   )
@@ -349,7 +387,7 @@ function ViewTrxHelpText({ theAtom }: { theAtom: Atom<string> }) {
               <a
                 href={`https://polkadot.js.org/apps/?rpc=${rpc}#/explorer/query/${trxId}`}
                 target="_blank"
-                className="rounded-md bg-green-50 px-2 py-1.5 text-sm font-medium text-green-800 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50"
+                className="rounded-md bg-green-100 px-2 py-1.5 text-sm font-medium text-green-800 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50"
               >
                 View on Polkadot Portal
               </a>
@@ -357,7 +395,7 @@ function ViewTrxHelpText({ theAtom }: { theAtom: Atom<string> }) {
               <a
                 href={`${blockExplorer}/blocks/${trxId}`}
                 target="_blank"
-                className="ml-3 rounded-md bg-green-50 px-2 py-1.5 text-sm font-medium text-green-800 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50"
+                className="ml-3 rounded-md bg-green-100 px-2 py-1.5 text-sm font-medium text-green-800 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 focus:ring-offset-green-50"
               >
                 View on StateScan
               </a>
@@ -412,8 +450,9 @@ function TransferToAddress() {
               disabled={!enabled}
               type="text"
               name="address"
-              className="block w-full rounded-md border-0 px-2.5 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+              className="block w-full rounded-md border-0 px-2.5 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 font-mono"
               placeholder="substrate address"
+              value="45R2pfjQUW2s9PQRHU48HQKLKHVMaDja7N3wpBtmF28UYDs2"
             />
           </div>
         </div>
@@ -425,6 +464,7 @@ function TransferToAddress() {
               id="amount"
               className="block w-full rounded-md border-0 py-1.5 pl-2.5 pr-12 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
               placeholder="0.00"
+              value="1"
             />
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
               <span className="text-gray-500 sm:text-sm">
@@ -448,12 +488,35 @@ function TransferToAddress() {
             }
           >
             {isPending ? (
-              <Spinner />
+              <ArrowPathIcon className="w-4 h-4 animate-spin" />
             ) : "Transfer"}
           </button>
         </div>
       </div>
     </form>
+  )
+}
+
+function ClaimTestTokenHelpText() {
+  const { connected } = useAtomValue(apiPromiseAtom)
+  const rpc = useAtomValue(rpcAtom)
+  const blockExplorer = useAtomValue(blockExplorerAtom)
+  return (
+    <div className="py-4 px-2.5 bg-stone-50 rounded-sm border border-stone-200">
+      <LightBulbIcon className="w-4 h-4 text-yellow-400 float-left mt-1.5" />
+      <article className="prose prose-stone dark:prose-invert ml-7 max-w-4xl prose-a:text-gray-500">
+        {!connected ? (
+          <p>
+            You need to connect your wallet in order to see the balance.
+          </p>
+        ) : (
+          <p>
+            Once you have connected to the supported node and signed the signature, it is ready for use. You can transfer funds into the mapping account and check the balance using
+            either <a href={`https://polkadot.js.org/apps/?rpc=${rpc}#/explorer`} target="_blank">Polkadot/Substrate Portal</a> or <a href={blockExplorer} target="_blank">Block Explorer</a>.
+          </p>
+        )}
+      </article>
+    </div>
   )
 }
 
@@ -464,32 +527,70 @@ function TransferToAddress() {
 
 export function Stage() {
   return (
-    <div className="w-full md:min-w-[600px] md:max-w-4xl flex flex-col gap-4">
-      <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight dark:text-white">
+    <div className="w-full md:min-w-[600px] md:max-w-4xl flex flex-col gap-4 pb-16">
+      <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight dark:text-white font-serif tracking-wide">
         EVM Account Mapping Pallet for Substrate
       </h1>
 
       <div className="bg-white shadow sm:rounded-lg py-5 sm:p-6 flex flex-col gap-2.5">
-        <div className="flex flex-row gap-2.5 px-4">
-          <div className="flex flex-col gap-2.5 grow">
+        <div className="pt-4 px-2.5 bg-stone-50 rounded-sm border border-stone-200">
+          <LightBulbIcon className="w-4 h-4 text-yellow-400 float-left mt-1.5" />
+          <article className="prose prose-stone dark:prose-invert ml-7 max-w-4xl prose-a:text-gray-500">
+            <p>
+              You need connect to a Substrate node with <code>evm_account_mapping</code> pallet. Or you can build your own test node here: <a href="https://github.com/Phala-Network/substrate-evm_account_mapping" target="_blank">github.com/Phala-Network/substrate-evm_account_mapping</a>.
+            </p>
+            <p>
+              Click the <q>Connect</q> button to connect to the node. It will check if the node supports the <code>evm_account_mapping</code> pallet and automatically compute the mapping substrate address.
+              Your have Signing the signature is required to continue, both <a href="https://metamask.io/" target="_blank">MetaMask</a> and <a href="https://rabby.io/" target="_blank">Rabby Wallet</a> has been tested, but it should work with any injected EVM compatible cryptocurrency wallet.
+            </p>
+            <p>
+            </p>
+          </article>
+        </div>
+        <div className="flex flex-row gap-2.5">
+          <form className="flex flex-col gap-2.5 grow">
             <RpcInput />
             <BlockExploerInput />
-          </div>
+          </form>
           <div>
             <ConnectButton />
           </div>
         </div>
         <SupportedStatement />
       </div>
+
       <MappingAddress />
+
       <div className="bg-white shadow sm:rounded-lg flex flex-col gap-2.5 px-4 py-5 sm:p-6">
+        <ClaimTestTokenHelpText />
         <div className="flex flex-row justify-between items-center">
           <AccountBalance />
           <ClaimTestToken />
         </div>
         <ViewTrxHelpText theAtom={claimTestTokenTrxIdAtom} />
       </div>
+
       <div className="bg-white shadow sm:rounded-lg flex flex-col gap-2.5 px-4 py-5 sm:p-6">
+        <div className="py-4 px-2.5 bg-stone-50 rounded-sm border border-stone-200">
+          <LightBulbIcon className="w-4 h-4 text-yellow-400 float-left mt-1.5" />
+          <article className="prose prose-stone dark:prose-invert ml-7 max-w-4xl prose-a:text-gray-500">
+            <p>
+              Our SDK allows you to sign transactions with your EVM compatible wallet and send them to the Substrate node. It will redirect any extrinsics to the <code>evm_account_mapping</code> pallet with minimal modifications.
+            </p>
+            <p>
+              For example, instead of directly calling <code>.signAndSend</code> on the basic <code>apiPromise.tx.balances.transferAllowDeath</code>, you can use the <code>signAndSendEvm</code> helper function provided in the SDK:
+            </p>
+            <pre className="font-mono">{dedent`
+              const result = await signAndSendEvm(
+                apiPromise.tx.balances.transferAllowDeath(mapping_address, amount),
+                apiPromise,
+                walletClient,
+                mappedAccount,
+              )
+            `}</pre>
+            <p>You can claim test tokens above and test the transfer below.</p>
+          </article>
+        </div>
         <TransferToAddress />
         <ViewTrxHelpText theAtom={transferOutTrxIdAtom} />
       </div>

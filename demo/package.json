@@ -9,8 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@fontsource/dejavu-mono": "^5.0.7",
+    "@fontsource/dejavu-sans": "^5.0.7",
+    "@fontsource/dejavu-serif": "^5.0.7",
     "@heroicons/react": "^2.0.18",
     "@polkadot/api": "^10.11.1",
+    "@tailwindcss/typography": "^0.5.10",
+    "dedent": "^1.5.1",
     "jotai": "^2.6.0",
     "next": "14.0.4",
     "react": "^18",
