@@ -10,7 +10,7 @@ import { mainnet } from 'viem/chains'
 import dedent from 'dedent'
 import { CheckCircleIcon, ExclamationCircleIcon, ArrowPathIcon, LightBulbIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/20/solid'
 
-import { getMappingAccount, type MappingAccount, signAndSend, signAndSendEvm } from '@/evm_mapping_sdk'
+import { getMappingAccount, type MappingAccount, signAndSend, signAndSendEvm } from 'evm_account_mapping_sdk'
 
 //
 // types

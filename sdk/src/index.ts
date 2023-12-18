@@ -1,19 +1,15 @@
-import { type ApiPromise } from '@polkadot/api'
-import { ApiTypes } from '@polkadot/api/types'
-import { type U256, type U64 } from '@polkadot/types-codec'
+import type { ApiPromise, SubmittableResult } from '@polkadot/api'
+import type { ApiTypes, Signer as InjectedSigner } from '@polkadot/api/types'
+import type { AddressOrPair, SubmittableExtrinsic } from '@polkadot/api-base/types/submittable'
+import type { U256, U64 } from '@polkadot/types-codec'
 import { hexToString, hexToU8a, u8aToHex } from '@polkadot/util'
 import { blake2AsU8a, encodeAddress, secp256k1Compress } from '@polkadot/util-crypto'
+
 import type { Account, Address, Hex, TestClient, WalletClient } from 'viem'
 import { hashMessage, recoverPublicKey } from 'viem'
-import { type signTypedData } from 'viem/wallet'
+import type { signTypedData } from 'viem/wallet'
 import { signMessage } from 'viem/wallet'
-import type { SubmittableResult } from '@polkadot/api'
-import type { Signer as InjectedSigner } from '@polkadot/api/types'
-import type { AddressOrPair, SubmittableExtrinsic } from '@polkadot/api-base/types/submittable'
 
-
-// keccak256(b"phala/phat-contract")
-const SALT = '0x0ea813d1592526d672ea2576d7a07914cef2ca301b35c5eed941f7c897512a00'
 
 type SignTypedDataInput = Parameters<typeof signTypedData>[1]
 
@@ -35,80 +31,6 @@ export async function etherAddressToCompressedPubkey(
 export interface EtherAddressToSubstrateAddressOptions {
   SS58Prefix?: number
   msg?: string
-}
-
-/**
- * Convert an Ethereum address to a Substrate address.
- */
-export async function etherAddressToSubstrateAddress(
-  client: WalletClient,
-  account: Account,
-  { SS58Prefix = 30, msg }: EtherAddressToSubstrateAddressOptions = {}
-) {
-  const compressedPubkey = await etherAddressToCompressedPubkey(client, account, msg)
-  const substratePubkey = encodeAddress(blake2AsU8a(hexToU8a(compressedPubkey)), SS58Prefix)
-  return substratePubkey as Address
-}
-
-export function createEip712StructedDataSignCertificate(
-  account: Account,
-  encodedCert: string,
-  ttl: number
-): SignTypedDataInput {
-  return {
-    domain: {
-      name: 'Phat Query Certificate',
-      version: '1',
-      salt: SALT,
-    },
-    message: {
-      description:
-        'You are signing a Certificate that can be used to query Phat Contracts using your identity without further prompts.',
-      timeToLive: `The Certificate will be valid till block ${ttl}.`,
-      encodedCert,
-    },
-    primaryType: 'IssueQueryCertificate',
-    types: {
-      EIP712Domain: [
-        { name: 'name', type: 'string' },
-        { name: 'version', type: 'string' },
-        { name: 'salt', type: 'bytes32' },
-      ],
-      IssueQueryCertificate: [
-        { name: 'description', type: 'string' },
-        { name: 'timeToLive', type: 'string' },
-        { name: 'encodedCert', type: 'bytes' },
-      ],
-    },
-    account,
-  }
-}
-
-export function createEip712StructedDataSignQuery(account: Account, encodedQuery: string): SignTypedDataInput {
-  return {
-    domain: {
-      name: 'Phat Contract Query',
-      version: '1',
-      salt: SALT,
-    },
-    message: {
-      description: 'You are signing a query request that would be sent to a Phat Contract.',
-      encodedQuery: encodedQuery,
-    },
-    primaryType: 'PhatContractQuery',
-    types: {
-      EIP712Domain: [
-        { name: 'name', type: 'string' },
-        { name: 'version', type: 'string' },
-        { name: 'salt', type: 'bytes32' },
-      ],
-      PhatContractQuery: [
-        { name: 'description', type: 'string' },
-        { name: 'encodedQuery', type: 'bytes' },
-      ],
-    },
-    account,
-  }
 }
 
 export interface Eip712Domain {
