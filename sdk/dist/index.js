@@ -22,10 +22,6 @@ var src_exports = {};
 __export(src_exports, {
   SignAndSendError: () => SignAndSendError,
   callback: () => callback,
-  createEip712Domain: () => createEip712Domain,
-  createEip712StructedDataSubstrateCall: () => createEip712StructedDataSubstrateCall,
-  createSubstrateCall: () => createSubstrateCall,
-  etherAddressToCompressedPubkey: () => etherAddressToCompressedPubkey,
   getMappingAccount: () => getMappingAccount,
   signAndSend: () => signAndSend,
   signAndSendEvm: () => signAndSendEvm
@@ -1870,21 +1866,76 @@ function ieee754write(buffer, value, offset, isLE, mLen, nBytes) {
 }
 
 // src/index.ts
+var import_util_crypto2 = require("@polkadot/util-crypto");
+
+// src/addressConverter.ts
 var import_util = require("@polkadot/util");
 var import_util_crypto = require("@polkadot/util-crypto");
 var import_viem = require("viem");
 var import_wallet = require("viem/wallet");
-async function etherAddressToCompressedPubkey(client, account, msg = "Allows to access the pubkey address.") {
+async function recoverEvmPubkey(client, account, msg = "Allows to access the pubkey address.") {
   const sign = await (0, import_wallet.signMessage)(client, { account, message: msg });
   const hash = (0, import_viem.hashMessage)(msg);
-  const recovered = await (0, import_viem.recoverPublicKey)({ hash, signature: sign });
-  const compressedPubkey = (0, import_util.u8aToHex)((0, import_util_crypto.secp256k1Compress)((0, import_util.hexToU8a)(recovered)));
-  return compressedPubkey;
+  const uncompressed = await (0, import_viem.recoverPublicKey)({ hash, signature: sign });
+  const compressed = (0, import_util.u8aToHex)((0, import_util_crypto.secp256k1Compress)((0, import_util.hexToU8a)(uncompressed)));
+  return {
+    uncompressed,
+    compressed,
+    toString: () => uncompressed
+  };
 }
+var EVM_ADDRESS_SUFFIX = new Uint8Array([
+  64,
+  101,
+  118,
+  109,
+  95,
+  97,
+  100,
+  100,
+  114,
+  101,
+  115,
+  115
+]);
+function evmPublicKeyToSubstrateRawAddressU8a(hex, converter = "EvmTransparentConverter") {
+  let pubkey = (0, import_util.hexToU8a)(hex);
+  let isCompressedPubkey = false;
+  const len = pubkey.length;
+  if (len === 64) {
+    throw new Error("Unexpected public key length: it should be 65 bytes or 33 bytes (compressed form).");
+  }
+  if (len !== 65 && len !== 33) {
+    throw new Error("Invalid public key length.");
+  }
+  if (len === 65 && pubkey[0] !== 4) {
+    throw new Error("Invalid public key format: it should 65 bytes and prefix with 0x04.");
+  } else if (len === 33) {
+    isCompressedPubkey = true;
+    if (pubkey[0] !== 2 && pubkey[0] !== 3) {
+      throw new Error("Invalid compressed public key format: it should 33 bytes and prefix with 0x02 or 0x03.");
+    }
+  }
+  if (converter === "EvmTransparentConverter") {
+    const h32 = (0, import_util_crypto.keccak256AsU8a)(isCompressedPubkey ? (0, import_util_crypto.secp256k1Expand)(pubkey) : pubkey.subarray(1));
+    const h20 = h32.subarray(12);
+    return new Uint8Array([...h20, ...EVM_ADDRESS_SUFFIX]);
+  } else if (converter === "SubstrateAddressConverter") {
+    if (!isCompressedPubkey) {
+      pubkey = (0, import_util_crypto.secp256k1Compress)(pubkey);
+    }
+    return (0, import_util_crypto.blake2AsU8a)(pubkey);
+  } else {
+    throw new Error(`Unknown converter: ${converter}`);
+  }
+}
+
+// src/eip712.ts
+var import_util2 = require("@polkadot/util");
 function createEip712Domain(api) {
   try {
-    const name = (0, import_util.hexToString)(api.consts.evmAccountMapping.eip712Name.toString());
-    const version2 = (0, import_util.hexToString)(api.consts.evmAccountMapping.eip712Version.toString());
+    const name = (0, import_util2.hexToString)(api.consts.evmAccountMapping.eip712Name.toString());
+    const version2 = (0, import_util2.hexToString)(api.consts.evmAccountMapping.eip712Version.toString());
     const chainId = api.consts.evmAccountMapping.eip712ChainID.toNumber();
     const verifyingContract = api.consts.evmAccountMapping.eip712VerifyingContractAddress.toString();
     return {
@@ -1907,9 +1958,8 @@ async function createSubstrateCall(api, substrateAddress, extrinsic) {
     nonce: nonce.toNumber()
   };
 }
-function createEip712StructedDataSubstrateCall(account, domain, message) {
+function createEip712StructedDataSubstrateCall(domain, message) {
   return {
-    account,
     types: {
       EIP712Domain: [
         {
@@ -1940,13 +1990,25 @@ function createEip712StructedDataSubstrateCall(account, domain, message) {
     message: { ...message }
   };
 }
-async function getMappingAccount(client, account, { SS58Prefix = 30, msg } = {}) {
-  const compressedPubkey = await etherAddressToCompressedPubkey(client, account, msg);
-  const substratePubkey = (0, import_util_crypto.encodeAddress)((0, import_util_crypto.blake2AsU8a)((0, import_util.hexToU8a)(compressedPubkey)), SS58Prefix);
+
+// src/index.ts
+async function getMappingAccount(api, client, account, { SS58Prefix = 30, msg } = {}) {
+  const version2 = api.consts.evmAccountMapping.eip712Version.toString();
+  if (version2 !== "0x31" && version2 !== "0x32") {
+    throw new Error(
+      `Unsupported evm_account_mapping pallet version: consts.evmAccountMapping.eip712Version = ${version2}`
+    );
+  }
+  const recoveredPubkey = await recoverEvmPubkey(client, account, msg);
+  const converter = version2 === "0x32" ? "EvmTransparentConverter" : "SubstrateAddressConverter";
+  const address = (0, import_util_crypto2.encodeAddress)(
+    evmPublicKeyToSubstrateRawAddressU8a(recoveredPubkey.compressed, converter),
+    SS58Prefix
+  );
   return {
     evmAddress: account.address,
-    compressedPubkey,
-    address: substratePubkey
+    substrateAddress: address,
+    SS58Prefix
   };
 }
 var SignAndSendError = class extends Error {
@@ -2004,14 +2066,14 @@ function signAndSend(target, address, signer) {
   });
 }
 async function signAndSendEvm(extrinsic, apiPromise, client, account) {
-  const substrateCall = await createSubstrateCall(apiPromise, account.address, extrinsic);
+  const substrateCall = await createSubstrateCall(apiPromise, account.substrateAddress, extrinsic);
   const domain = createEip712Domain(apiPromise);
-  const typedData = createEip712StructedDataSubstrateCall({ address: account.evmAddress }, domain, substrateCall);
-  const signature = await client.signTypedData(typedData);
+  const typedData = createEip712StructedDataSubstrateCall(domain, substrateCall);
+  const signature = await client.signTypedData({ ...typedData, account: account.evmAddress });
   return await new Promise(async (resolve, reject) => {
     try {
       const _extrinsic = apiPromise.tx.evmAccountMapping.metaCall(
-        account.address,
+        account.substrateAddress,
         substrateCall.callData,
         substrateCall.nonce,
         signature,
